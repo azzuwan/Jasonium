@@ -19,9 +19,8 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
@@ -41,14 +40,11 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.layout.VBoxBuilder;
-import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
-import javafx.stage.Modality;
 import javafx.stage.Stage;
 
 public class MainApp extends Application {
-    
+
     @Override
     public void start(Stage stage) throws Exception {
         //Main panel
@@ -70,7 +66,7 @@ public class MainApp extends Application {
             FileChooser fileChooser = new FileChooser();
             fileChooser.setTitle("Open Resource File");
             File file = fileChooser.showOpenDialog(stage);
-            
+
         });
         menuFile.getItems().addAll(menuItemNew, menuItemOpen, menuItemSave);
 
@@ -84,17 +80,11 @@ public class MainApp extends Application {
         Menu menuInfo = new Menu("Info");
         MenuItem menuItemAbout = new MenuItem("About");
         menuItemAbout.setOnAction((event) -> {
-            Stage myDialog = new Stage();
-            myDialog.initModality(Modality.APPLICATION_MODAL);
-            myDialog.initOwner(stage);
-            Scene myDialogScene = new Scene(VBoxBuilder.create()                    
-                    .children(new Text("Jasonium\n\n\nCopyright © 2017, Azzuwan Aziz"))
-                    .alignment(Pos.CENTER)
-                    .padding(new Insets(40))
-                    .build());
-
-            myDialog.setScene(myDialogScene);
-            myDialog.show();
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("About Jasonium");
+            alert.setHeaderText("Jasonium");
+            alert.setContentText("Copyright © 2017 Azzuwan Aziz ");
+            alert.showAndWait();
         });
         menuInfo.getItems().add(menuItemAbout);
         //Add all the top level menu
@@ -102,10 +92,10 @@ public class MainApp extends Application {
 
         //Toolbar
         ToolBar toolBar = new ToolBar();
-        
+
         Image btnNewImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-new.png"));
         Button btnNew = new Button("", new ImageView(btnNewImg));
-        
+
         Image btnOpenImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-open.png"));
         Button btnOpen = new Button("", new ImageView(btnOpenImg));
         btnOpen.setOnAction((ActionEvent event) -> {
@@ -114,10 +104,14 @@ public class MainApp extends Application {
             fileChooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("JSON Files", "*.json"));
             File file = fileChooser.showOpenDialog(stage);
             if (file != null) {
-                defaultTabPane.setCenter(buildTable(file));
+                TableView table = buildTable(file);
+                BorderPane tablePane = new BorderPane(table);
+                tablePane.setStyle("-fx-padding: 0px 6px 6px 6px;");
+                tablePane.setCenter(table);
+                defaultTabPane.setCenter(tablePane);                
                 defaultTab.setText(file.getName());
             }
-            
+
         });
         Image btnSaveImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-save.png"));
         Button btnSave = new Button("", new ImageView(btnSaveImg));
@@ -148,17 +142,17 @@ public class MainApp extends Application {
         //Tab panel container
         TabPane tabPane = new TabPane();
         tabPane.getTabs().add(defaultTab);
-        
+
         root.setCenter(tabPane);
         Scene scene = new Scene(root, 1024, 768);
-        
+
         stage.setTitle("Jasonium");
         stage.setScene(scene);
         stage.show();
     }
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
-    
+
     private TreeView buildTreeView(File file) {
         TreeView<String> tree = new TreeView<>();
         try {
@@ -181,16 +175,16 @@ public class MainApp extends Application {
                 }
                 i++;
                 treeRoot.getChildren().add(item);
-                
+
             }
             tree.setRoot(treeRoot);
         } catch (IOException ex) {
             Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
         }
-        
+
         return tree;
     }
-    
+
     private TableView buildTable(File file) {
         TableView table = new TableView();
         ReadContext ctx = null;
@@ -201,11 +195,13 @@ public class MainApp extends Application {
         }
         List<Map<String, LinkedHashMap>> entityList = ctx.read("$.rasa_nlu_data.entity_examples");
         table.setEditable(true);
-        
+
         TableColumn indexCol = new TableColumn("#");
         indexCol.setCellValueFactory(new PropertyValueFactory<>("index"));
-        
-        TableColumn intentCol = new TableColumn("Intent");
+        indexCol.setMinWidth(25.0);
+        indexCol.setMaxWidth(80.0);
+
+        TableColumn intentCol = new TableColumn("Intent");        
         intentCol.setCellValueFactory(new PropertyValueFactory<>("intent"));
         intentCol.setCellFactory(TextFieldTableCell.forTableColumn());
         intentCol.setOnEditCommit(
@@ -217,7 +213,8 @@ public class MainApp extends Application {
             }
         }
         );
-        
+        intentCol.setPrefWidth(300.0);
+
         TableColumn textCol = new TableColumn("Text");
         textCol.setCellValueFactory(new PropertyValueFactory<>("text"));
         textCol.setCellFactory(TextFieldTableCell.forTableColumn());
@@ -230,6 +227,8 @@ public class MainApp extends Application {
             }
         }
         );
+        textCol.setPrefWidth(400.0);
+        
         TableColumn entitiesCol = new TableColumn("Entities");
         entitiesCol.setCellValueFactory(new PropertyValueFactory<>("entities"));
         entitiesCol.setCellFactory(TextFieldTableCell.forTableColumn());
@@ -242,9 +241,11 @@ public class MainApp extends Application {
             }
         }
         );
-        
+        entitiesCol.setPrefWidth(300.0);
+
         table.getColumns().addAll(indexCol, intentCol, textCol, entitiesCol);
-        
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+
         ObservableList<Intent> intentList = FXCollections.observableArrayList();
         int i = 0;
         for (Object entity : entityList) {
@@ -256,10 +257,13 @@ public class MainApp extends Application {
             intentList.add(intent);
             i++;
         }
-        table.setItems(intentList);
+        table.setItems(intentList);       
+        table.setStyle("-fx-border-width: 1px;");
+        table.setStyle("-fx-border-color: gray;");
+        
         return table;
     }
-    
+
     private Connection connect() {
         Connection conn = null;
         try {
@@ -277,5 +281,5 @@ public class MainApp extends Application {
     public static void main(String[] args) {
         launch(args);
     }
-    
+
 }
