@@ -10,6 +10,7 @@ import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -19,12 +20,18 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
 import javafx.scene.control.MenuBar;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
@@ -39,14 +46,26 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import javafx.util.Pair;
+import org.apache.metamodel.UpdateCallback;
+import org.apache.metamodel.jdbc.JdbcDataContext;
+import org.apache.metamodel.schema.ColumnType;
+import org.apache.metamodel.schema.Schema;
+import org.apache.metamodel.schema.Table;
 
 public class MainApp extends Application {
 
+    private Tab defaultTab = new Tab("Untitled*");
+    private BorderPane defaultTabPane = new BorderPane();
+    private Connection h2Connection = null;
+
     @Override
     public void start(Stage stage) throws Exception {
+        h2Connection = connect();
         //Main panel
         BorderPane root = new BorderPane();
         //Vertical box to stack menu and tool bar
@@ -70,6 +89,52 @@ public class MainApp extends Application {
         });
         menuFile.getItems().addAll(menuItemNew, menuItemOpen, menuItemSave);
 
+        //Top level Connections
+        Menu menuConnections = new Menu("Connections");
+        MenuItem menuItemAddConnection = new MenuItem("Add connection");
+        menuItemAddConnection.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                Dialog<Pair<String, String>> dialog = new Dialog<>();
+                dialog.setTitle("Add New Connection");
+                dialog.setHeaderText("Database Connection Details ");
+                dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                GridPane grid = new GridPane();
+                grid.setHgap(10);
+                grid.setVgap(10);
+                grid.setPadding(new Insets(20, 150, 10, 10));
+                //grid.setPrefWidth(400.0);
+                
+                TextField host = new TextField();
+                host.minWidth(400.0);
+                host.setPromptText("Domain / host name / IP Address");
+                TextField port = new TextField();
+                port.setPromptText("Port");
+                
+                TextField user = new TextField();
+                user.setPromptText("Username");
+                
+                PasswordField pass = new PasswordField();
+                pass.setPromptText("Password");
+                
+                grid.add(new Label("Host:"), 0,0);
+                grid.add(host, 1, 0);
+                grid.add(new Label("port:"), 0,1);
+                grid.add(port, 1, 1);
+                grid.add(new Label("Username:"), 0,2);
+                grid.add(user, 1, 2);
+                grid.add(new Label("Password:"), 0,3);
+                grid.add(pass, 1, 3);
+                VBox box = new VBox();
+                box.setAlignment(Pos.CENTER);
+                box.getChildren().add(grid);
+                dialog.getDialogPane().setContent(box);
+                Optional<Pair<String, String>> result = dialog.showAndWait();
+
+                //createConnection("localhost", "", "", "");
+            }
+        });
+        menuConnections.getItems().add(menuItemAddConnection);
         //Top level Find
         Menu menuFind = new Menu("Find");
 
@@ -88,15 +153,15 @@ public class MainApp extends Application {
         });
         menuInfo.getItems().add(menuItemAbout);
         //Add all the top level menu
-        menuBar.getMenus().addAll(menuFile, menuFind, menuView, menuInfo);
+        menuBar.getMenus().addAll(menuFile, menuFind, menuConnections, menuView, menuInfo);
 
         //Toolbar
         ToolBar toolBar = new ToolBar();
 
-        Image btnNewImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-new.png"));
+        Image btnNewImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/file-new.png"));
         Button btnNew = new Button("", new ImageView(btnNewImg));
 
-        Image btnOpenImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-open.png"));
+        Image btnOpenImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/file-open.png"));
         Button btnOpen = new Button("", new ImageView(btnOpenImg));
         btnOpen.setOnAction((ActionEvent event) -> {
             FileChooser fileChooser = new FileChooser();
@@ -108,14 +173,14 @@ public class MainApp extends Application {
                 BorderPane tablePane = new BorderPane(table);
                 tablePane.setStyle("-fx-padding: 0px 6px 6px 6px;");
                 tablePane.setCenter(table);
-                defaultTabPane.setCenter(tablePane);                
+                defaultTabPane.setCenter(tablePane);
                 defaultTab.setText(file.getName());
             }
 
         });
-        Image btnSaveImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-save.png"));
+        Image btnSaveImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/file-save.png"));
         Button btnSave = new Button("", new ImageView(btnSaveImg));
-        Image btnSaveAsImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/doc-save-as.png"));
+        Image btnSaveAsImg = new Image(getClass().getClassLoader().getResourceAsStream("icons/file-save-as.png"));
         Button btnSaveAs = new Button("", new ImageView(btnSaveAsImg));
         TextField textSearch = new TextField();
         textSearch.setPrefWidth(300);
@@ -128,6 +193,9 @@ public class MainApp extends Application {
 
         //Main panel top
         root.setTop(boxTop);
+
+        //Main panel left panel
+        root.setLeft(buildConnectionTreeView());
 
         //Tool bar for tab content
         ToolBar defaultTabTool = new ToolBar();
@@ -150,38 +218,15 @@ public class MainApp extends Application {
         stage.setScene(scene);
         stage.show();
     }
-    private Tab defaultTab = new Tab("Untitled*");
-    private BorderPane defaultTabPane = new BorderPane();
 
-    private TreeView buildTreeView(File file) {
+    private TreeView buildConnectionTreeView() {
         TreeView<String> tree = new TreeView<>();
-        try {
-            ReadContext ctx = JsonPath.parse(file);
-            List<Map<String, LinkedHashMap>> entityList = ctx.read("$.rasa_nlu_data.entity_examples");
-            TreeItem<String> treeRoot = new TreeItem<>("Root");
-            treeRoot.setExpanded(true);
-            int i = 0;
-            System.out.println("ENTITY LIST TYPE: " + entityList.getClass());
-            for (Object entity : entityList) {
-                System.out.println("ENTITY CLASS: " + entity.getClass());
-                TreeItem<String> item = new TreeItem<>(Integer.toString(i));
-                LinkedHashMap map = (LinkedHashMap) entity;
-                Set<String> keys = map.keySet();
-                for (String k : keys) {
-                    System.out.println("OBJECT K: " + k.getClass());
-                    String v = map.get(k).toString();
-                    TreeItem<String> p = new TreeItem<>(v);
-                    item.getChildren().add(p);
-                }
-                i++;
-                treeRoot.getChildren().add(item);
-
-            }
-            tree.setRoot(treeRoot);
-        } catch (IOException ex) {
-            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
+        Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
+        TreeItem root = new TreeItem("Servers", new ImageView(imgRoot));
+        tree.setRoot(root);
+        Image imgLocal = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
+        TreeItem localhost = new TreeItem("Local MongoDB", new ImageView(imgLocal));
+        root.getChildren().add(localhost);
         return tree;
     }
 
@@ -201,7 +246,7 @@ public class MainApp extends Application {
         indexCol.setMinWidth(25.0);
         indexCol.setMaxWidth(80.0);
 
-        TableColumn intentCol = new TableColumn("Intent");        
+        TableColumn intentCol = new TableColumn("Intent");
         intentCol.setCellValueFactory(new PropertyValueFactory<>("intent"));
         intentCol.setCellFactory(TextFieldTableCell.forTableColumn());
         intentCol.setOnEditCommit(
@@ -228,7 +273,7 @@ public class MainApp extends Application {
         }
         );
         textCol.setPrefWidth(400.0);
-        
+
         TableColumn entitiesCol = new TableColumn("Entities");
         entitiesCol.setCellValueFactory(new PropertyValueFactory<>("entities"));
         entitiesCol.setCellFactory(TextFieldTableCell.forTableColumn());
@@ -257,10 +302,10 @@ public class MainApp extends Application {
             intentList.add(intent);
             i++;
         }
-        table.setItems(intentList);       
+        table.setItems(intentList);
         table.setStyle("-fx-border-width: 1px;");
         table.setStyle("-fx-border-color: gray;");
-        
+
         return table;
     }
 
@@ -275,11 +320,53 @@ public class MainApp extends Application {
         return conn;
     }
 
+    private void createConnection(String host, String port, String user, String password) {
+        JdbcDataContext h2 = new JdbcDataContext(this.h2Connection);
+        Schema schema = h2.getSchemaByName("PUBLIC");
+        if (schema != null) {
+            Table table = schema.getTableByName("CONNECTIONS");
+            if (table != null) {
+                System.out.println("Table exist");
+            } else {
+                createConnectionTable();
+            }
+        } else {
+            System.out.println("No such schema in create connection");
+        }
+
+    }
+
     /**
      * @param args the command line arguments
      */
     public static void main(String[] args) {
         launch(args);
+    }
+
+    private void createConnectionTable() {
+        JdbcDataContext h2 = new JdbcDataContext(h2Connection);
+        h2.executeUpdate((UpdateCallback uc) -> {
+            Schema[] list = h2.getSchemas();
+            for (Schema s : list) {
+                System.out.println("Schema => " + s.getName());
+                System.out.println("Default Schema: " + h2.getDefaultSchema().getName());
+            }
+            Schema schema = h2.getSchemaByName("PUBLIC");
+            if (schema != null) {
+                uc.createTable("PUBLIC", "CONNECTIONS")
+                        .withColumn("id").ofType(ColumnType.INTEGER)
+                        .withColumn("name").ofType(ColumnType.VARCHAR)
+                        .withColumn("host").ofType(ColumnType.VARCHAR)
+                        .withColumn("port").ofType(ColumnType.INTEGER)
+                        .withColumn("user").ofType(ColumnType.VARCHAR)
+                        .withColumn("password").ofType(ColumnType.VARCHAR)
+                        .execute();
+                System.out.println("Table created");
+            } else {
+                System.out.println("No such schema in create connection table");
+            }
+
+        });
     }
 
 }
