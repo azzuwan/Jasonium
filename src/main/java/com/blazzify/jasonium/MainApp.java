@@ -1,12 +1,18 @@
 package com.blazzify.jasonium;
 
+import com.blazzify.jasonium.models.Server;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.ReadContext;
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +21,7 @@ import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Application;
-import static javafx.application.Application.launch;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -26,6 +32,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -50,26 +57,27 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.util.Pair;
-import org.apache.metamodel.UpdateCallback;
-import org.apache.metamodel.jdbc.JdbcDataContext;
-import org.apache.metamodel.schema.ColumnType;
-import org.apache.metamodel.schema.Schema;
-import org.apache.metamodel.schema.Table;
+import org.javalite.activejdbc.Base;
 
 public class MainApp extends Application {
 
+    BorderPane root = new BorderPane();
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
     private Connection h2Connection = null;
+    private TabPane tabPane = new TabPane();
 
     @Override
     public void start(Stage stage) throws Exception {
-        h2Connection = connect();
-        //Main panel
-        BorderPane root = new BorderPane();
+        //Check if local storage exists.
+        checkExistingStorage();
+
+        //Open database connection to H2
+        Base.open();
+
         //Vertical box to stack menu and tool bar
         VBox boxTop = new VBox();
+
         //The menubar
         MenuBar menuBar = new MenuBar();
 
@@ -92,47 +100,73 @@ public class MainApp extends Application {
         //Top level Connections
         Menu menuConnections = new Menu("Connections");
         MenuItem menuItemAddConnection = new MenuItem("Add connection");
-        menuItemAddConnection.setOnAction(new EventHandler<ActionEvent>() {
-            @Override
-            public void handle(ActionEvent event) {
-                Dialog<Pair<String, String>> dialog = new Dialog<>();
-                dialog.setTitle("Add New Connection");
-                dialog.setHeaderText("Database Connection Details ");
-                dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
-                GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(10);
-                grid.setPadding(new Insets(20, 150, 10, 10));
-                //grid.setPrefWidth(400.0);
-                
-                TextField host = new TextField();
-                host.minWidth(400.0);
-                host.setPromptText("Domain / host name / IP Address");
-                TextField port = new TextField();
-                port.setPromptText("Port");
-                
-                TextField user = new TextField();
-                user.setPromptText("Username");
-                
-                PasswordField pass = new PasswordField();
-                pass.setPromptText("Password");
-                
-                grid.add(new Label("Host:"), 0,0);
-                grid.add(host, 1, 0);
-                grid.add(new Label("port:"), 0,1);
-                grid.add(port, 1, 1);
-                grid.add(new Label("Username:"), 0,2);
-                grid.add(user, 1, 2);
-                grid.add(new Label("Password:"), 0,3);
-                grid.add(pass, 1, 3);
-                VBox box = new VBox();
-                box.setAlignment(Pos.CENTER);
-                box.getChildren().add(grid);
-                dialog.getDialogPane().setContent(box);
-                Optional<Pair<String, String>> result = dialog.showAndWait();
+        menuItemAddConnection.setOnAction((ActionEvent event) -> {
+            Dialog<Map<String, String>> dialog = new Dialog<>();
+            dialog.setTitle("Add New Connection");
+            dialog.setHeaderText("Database Connection Details ");
+            dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
 
-                //createConnection("localhost", "", "", "");
-            }
+            TextField label = new TextField();
+            label.setPromptText("Connection name");
+
+            TextField host = new TextField();
+            host.minWidth(400.0);
+            host.setPromptText("Domain, host name or  IP Address");
+            TextField port = new TextField();
+            port.setPromptText("Port");
+
+            TextField user = new TextField();
+            user.setPromptText("Username");
+
+            PasswordField pass = new PasswordField();
+            pass.setPromptText("Password");
+
+            ChoiceBox type = new ChoiceBox();
+            type.getItems().add(new ServerType("H2 Embedded", "embedded"));
+            type.getItems().add(new ServerType("H2 Server", "h2"));
+            type.getItems().add(new ServerType("MongoDB", "mongodb"));
+            type.getItems().add(new ServerType("MariaDB", "mariadb"));
+            type.getItems().add(new ServerType("Mysql", "mysql"));
+            type.getItems().add(new ServerType("Postgresql", "postgresql"));
+
+            grid.add(new Label("Label:"), 0, 0);
+            grid.add(label, 1, 0);
+            grid.add(new Label("Host:"), 0, 1);
+            grid.add(host, 1, 1);
+            grid.add(new Label("port:"), 0, 2);
+            grid.add(port, 1, 2);
+            grid.add(new Label("Username:"), 0, 3);
+            grid.add(user, 1, 3);
+            grid.add(new Label("Password:"), 0, 4);
+            grid.add(pass, 1, 4);
+            grid.add(new Label("Server Type:"), 0, 5);
+            grid.add(type, 1, 5);
+
+            VBox box = new VBox();
+            box.setAlignment(Pos.CENTER);
+            box.getChildren().add(grid);
+            dialog.getDialogPane().setContent(box);
+            Platform.runLater(() -> label.requestFocus());
+            dialog.setResultConverter(btn -> {
+                if (btn == ButtonType.OK) {
+                    Map<String, String> details = new HashMap<>();
+                    details.put("name", label.getText());
+                    details.put("host", host.getText());
+                    details.put("port", port.getText());
+                    details.put("user", user.getText());
+                    details.put("pass", pass.getText());
+                    details.put("type", ((ServerType) type.getValue()).getValue());
+                    return details;
+                }
+                return null;
+            });
+            Optional<Map<String, String>> result = dialog.showAndWait();
+            System.out.println("Details gathered: " + result.get());
+            addConnection(result);
         });
         menuConnections.getItems().add(menuItemAddConnection);
         //Top level Find
@@ -195,7 +229,7 @@ public class MainApp extends Application {
         root.setTop(boxTop);
 
         //Main panel left panel
-        root.setLeft(buildConnectionTreeView());
+        root.setLeft(buildServersTree());
 
         //Tool bar for tab content
         ToolBar defaultTabTool = new ToolBar();
@@ -208,10 +242,9 @@ public class MainApp extends Application {
         defaultTab.setContent(defaultTabPane);
 
         //Tab panel container
-        TabPane tabPane = new TabPane();
         tabPane.getTabs().add(defaultTab);
 
-        root.setCenter(tabPane);
+        //root.setCenter(tabPane);
         Scene scene = new Scene(root, 1024, 768);
 
         stage.setTitle("Jasonium");
@@ -219,13 +252,17 @@ public class MainApp extends Application {
         stage.show();
     }
 
-    private TreeView buildConnectionTreeView() {
+    private TreeView buildServersTree() {
+
+        List<Server> servers = Server.findAll();
+
         TreeView<String> tree = new TreeView<>();
         Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
         TreeItem root = new TreeItem("Servers", new ImageView(imgRoot));
         tree.setRoot(root);
         Image imgLocal = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
-        TreeItem localhost = new TreeItem("Local MongoDB", new ImageView(imgLocal));
+        //TreeItem localhost = new TreeItem("Local MongoDB", new ImageView(imgLocal));
+        foreach
         root.getChildren().add(localhost);
         return tree;
     }
@@ -313,26 +350,40 @@ public class MainApp extends Application {
         Connection conn = null;
         try {
             Class.forName("org.h2.Driver");
-            conn = DriverManager.getConnection("jdbc:h2:~/store", "sa", "");
+            conn = DriverManager.getConnection("jdbc:h2:~/jasonium", "sa", "");
         } catch (ClassNotFoundException | SQLException ex) {
             Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Application Storage Error");
+            alert.setHeaderText("Failed to read Jasonium database");
+            alert.setContentText(ex.getMessage());
+            alert.showAndWait();
+            System.exit(1);
         }
         return conn;
     }
 
-    private void createConnection(String host, String port, String user, String password) {
-        JdbcDataContext h2 = new JdbcDataContext(this.h2Connection);
-        Schema schema = h2.getSchemaByName("PUBLIC");
-        if (schema != null) {
-            Table table = schema.getTableByName("CONNECTIONS");
-            if (table != null) {
-                System.out.println("Table exist");
-            } else {
-                createConnectionTable();
+    private void checkExistingStorage() {
+        Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.mv.db");
+        if (Files.notExists(path)) {
+            try {
+                Class.forName("org.h2.Driver");
+                Connection conn = DriverManager.getConnection("hdbc:h2:~/jasonium", "sa", "");
+            } catch (ClassNotFoundException | SQLException ex) {
+                Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
             }
-        } else {
-            System.out.println("No such schema in create connection");
         }
+    }
+
+    private void addConnection(Optional<Map<String, String>> details) {
+        Server s = new Server();
+        s.set("name", details.get().get("name"));
+        s.set("host", details.get().get("host"));
+        s.set("port", details.get().get("port"));
+        s.set("user", details.get().get("user"));
+        s.set("pass", details.get().get("pass"));
+        s.saveIt();
+        System.out.println("NEW CONNECTION INSERTED");
 
     }
 
@@ -344,29 +395,22 @@ public class MainApp extends Application {
     }
 
     private void createConnectionTable() {
-        JdbcDataContext h2 = new JdbcDataContext(h2Connection);
-        h2.executeUpdate((UpdateCallback uc) -> {
-            Schema[] list = h2.getSchemas();
-            for (Schema s : list) {
-                System.out.println("Schema => " + s.getName());
-                System.out.println("Default Schema: " + h2.getDefaultSchema().getName());
-            }
-            Schema schema = h2.getSchemaByName("PUBLIC");
-            if (schema != null) {
-                uc.createTable("PUBLIC", "CONNECTIONS")
-                        .withColumn("id").ofType(ColumnType.INTEGER)
-                        .withColumn("name").ofType(ColumnType.VARCHAR)
-                        .withColumn("host").ofType(ColumnType.VARCHAR)
-                        .withColumn("port").ofType(ColumnType.INTEGER)
-                        .withColumn("user").ofType(ColumnType.VARCHAR)
-                        .withColumn("password").ofType(ColumnType.VARCHAR)
-                        .execute();
-                System.out.println("Table created");
-            } else {
-                System.out.println("No such schema in create connection table");
-            }
+        Statement stmt = null;
+        try {
+            stmt = h2Connection.createStatement();
+            String sql = "CREATE TABLE servers("
+                    + "id bigint auto_increment primary key, "
+                    + "name varchar(255), "
+                    + "host varchar(255), "
+                    + "port varchar(255), "
+                    + "user varchar(255), "
+                    + "pass varchar(255), "
+                    + "type varchar(255))";
+            stmt.executeUpdate(sql);
+            System.out.println("TABLE CREATED");
+        } catch (SQLException ex) {
+            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
-        });
     }
-
 }
