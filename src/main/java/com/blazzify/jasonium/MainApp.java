@@ -258,12 +258,13 @@ public class MainApp extends Application {
 
         TreeView<String> tree = new TreeView<>();
         Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
-        TreeItem root = new TreeItem("Servers", new ImageView(imgRoot));
-        tree.setRoot(root);
-        Image imgLocal = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
-        //TreeItem localhost = new TreeItem("Local MongoDB", new ImageView(imgLocal));
-        foreach
-        root.getChildren().add(localhost);
+        TreeItem rootNode = new TreeItem("Servers", new ImageView(imgRoot));
+        tree.setRoot(rootNode);
+        Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
+        
+        servers.stream().map((s) -> new TreeItem<>(s, new ImageView(imgOffline))).forEachOrdered((t) -> {
+            rootNode.getChildren().add(t);
+        });        
         return tree;
     }
 
