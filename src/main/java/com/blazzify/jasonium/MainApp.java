@@ -73,7 +73,15 @@ public class MainApp extends Application {
         checkExistingStorage();
 
         //Open database connection to H2
-        Base.open();
+        try {
+            Base.open("org.h2.Driver", "jdbc:h2:~/jasonium", "sa", "");
+        } catch (Exception e) {
+            Alert alert = new Alert(Alert.AlertType.ERROR);
+            alert.setTitle("Local Storage Error");
+            alert.setHeaderText("Cannot open local database");
+            alert.setContentText("Stack Trace:\n" + e.getMessage());
+        }
+        
 
         //Vertical box to stack menu and tool bar
         VBox boxTop = new VBox();
@@ -370,6 +378,7 @@ public class MainApp extends Application {
             try {
                 Class.forName("org.h2.Driver");
                 Connection conn = DriverManager.getConnection("hdbc:h2:~/jasonium", "sa", "");
+                createConnectionTable(conn);
             } catch (ClassNotFoundException | SQLException ex) {
                 Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
             }
@@ -395,10 +404,10 @@ public class MainApp extends Application {
         launch(args);
     }
 
-    private void createConnectionTable() {
+    private void createConnectionTable(Connection conn) {
         Statement stmt = null;
         try {
-            stmt = h2Connection.createStatement();
+            stmt = conn.createStatement();
             String sql = "CREATE TABLE servers("
                     + "id bigint auto_increment primary key, "
                     + "name varchar(255), "
