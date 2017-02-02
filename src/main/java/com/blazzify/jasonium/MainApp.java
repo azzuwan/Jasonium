@@ -1,7 +1,10 @@
 package com.blazzify.jasonium;
 
 import com.blazzify.jasonium.models.Server;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,7 +29,6 @@ import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ButtonType;
-import javafx.scene.control.ChoiceBox;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.Menu;
@@ -64,6 +66,7 @@ public class MainApp extends Application {
     private TreeView<Server> serverTree = new TreeView<>();
     DB storage = null;
     ConcurrentMap servers = null;
+    ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -121,13 +124,13 @@ public class MainApp extends Application {
             PasswordField pass = new PasswordField();
             pass.setPromptText("Password");
 
-            ChoiceBox type = new ChoiceBox();
-            type.getItems().add(new ServerType("H2 Embedded", "embedded"));
-            type.getItems().add(new ServerType("H2 Server", "h2"));
-            type.getItems().add(new ServerType("MongoDB", "mongodb"));
-            type.getItems().add(new ServerType("MariaDB", "mariadb"));
-            type.getItems().add(new ServerType("Mysql", "mysql"));
-            type.getItems().add(new ServerType("Postgresql", "postgresql"));
+//            ChoiceBox type = new ChoiceBox();
+//            type.getItems().add(new ServerType("H2 Embedded", "embedded"));
+//            type.getItems().add(new ServerType("H2 Server", "h2"));
+//            type.getItems().add(new ServerType("MongoDB", "mongodb"));
+//            type.getItems().add(new ServerType("MariaDB", "mariadb"));
+//            type.getItems().add(new ServerType("Mysql", "mysql"));
+//            type.getItems().add(new ServerType("Postgresql", "postgresql"));
 
             grid.add(new Label("Label:"), 0, 0);
             grid.add(label, 1, 0);
@@ -139,8 +142,8 @@ public class MainApp extends Application {
             grid.add(user, 1, 3);
             grid.add(new Label("Password:"), 0, 4);
             grid.add(pass, 1, 4);
-            grid.add(new Label("Server Type:"), 0, 5);
-            grid.add(type, 1, 5);
+//            grid.add(new Label("Server Type:"), 0, 5);
+//            grid.add(type, 1, 5);
 
             VBox box = new VBox();
             box.setAlignment(Pos.CENTER);
@@ -155,7 +158,7 @@ public class MainApp extends Application {
                     details.put("port", port.getText());
                     details.put("user", user.getText());
                     details.put("pass", pass.getText());
-                    details.put("type", ((ServerType) type.getValue()).getValue());
+//                    details.put("type", ((ServerType) type.getValue()).getValue());
                     return details;
                 }
                 return null;
@@ -255,35 +258,18 @@ public class MainApp extends Application {
         node.setName("Servers");
         TreeItem<Server> rootNode = new TreeItem<>(node, new ImageView(imgRoot));
         servers.forEach((t, u) -> {
+            
             Server s = new Server();
-            String h = u.toString().replaceAll("\\{|\\}", "");
-            String[] y = h.split(",");
-            for(String z : y){
-                String[] n = z.split("=");
-                switch (n[0].trim()){
-                    case "name":
-                        s.setName(n[1]);
-                        break;
-                    case "host":
-                        s.setHost(n[1]);
-                        break;
-                    case "port":
-                        s.setPort(n[1]);
-                        break;
-                    case "user":
-                        s.setUser(n[1]);
-                        break;
-                    case "pass":
-                        s.setPass(n[1]);
-                        break;
-                    default:
-                        break;
-                }                
+            try {
+                s = mapper.readValue(u.toString(), Server.class);
+            } catch (IOException ex) {
+                Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
             }
+            
+            
             Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
             TreeItem<Server> child = new TreeItem<>(s, new ImageView(imgOffline));
             rootNode.getChildren().add(child);
-            System.out.println("FFDFDFDFDFD: " + s+ "  ggggg: " + s.getHost());
             
         });
         serverTree.setRoot(rootNode);        
@@ -393,13 +379,22 @@ public class MainApp extends Application {
 
     private void addConnection(Optional<Map<String, String>> details) {
         Map<String, String> detail = details.get();
-        servers.put(detail.get("name"), detail.toString());
+        
+        String serialized = null;
+        try {
+            serialized = mapper.writeValueAsString(detail);
+            System.out.println("NEW CONNECTION SERIALIZED: " + serialized);
+        } catch (JsonProcessingException ex) {
+            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        servers.put(detail.get("name"), serialized);
         Server s = new Server(detail.get("name"),                 
                 detail.get("host"), 
                 detail.get("port"), 
                 detail.get("user"),                 
                 detail.get("pass"),
-                detail.get("type")
+                ""
+//                detail.get("type")
         ); 
         Image img = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
         ImageView iv = new ImageView(img);
