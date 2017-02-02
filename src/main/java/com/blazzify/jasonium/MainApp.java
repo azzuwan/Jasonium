@@ -1,10 +1,10 @@
 package com.blazzify.jasonium;
 
 import com.blazzify.jasonium.models.Server;
+import com.blazzify.jasonium.ui.ServerTree;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -43,7 +43,6 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.ToolBar;
 import javafx.scene.control.TreeItem;
-import javafx.scene.control.TreeView;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.image.Image;
@@ -58,12 +57,12 @@ import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
 public class MainApp extends Application {
-
+    
     BorderPane root = new BorderPane();
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
     private TabPane tabPane = new TabPane();
-    private TreeView<Server> serverTree = new TreeView<>();
+    private ServerTree serverTree;
     DB storage = null;
     ConcurrentMap servers = null;
     ObjectMapper mapper = new ObjectMapper();
@@ -227,9 +226,6 @@ public class MainApp extends Application {
         //Main panel top
         root.setTop(boxTop);
 
-        //Main panel left panel
-        root.setLeft(buildServersTree());
-
         //Tool bar for tab content
         ToolBar defaultTabTool = new ToolBar();
 
@@ -249,33 +245,13 @@ public class MainApp extends Application {
         stage.setTitle("Jasonium");
         stage.setScene(scene);
         stage.show();
+        
+        //Main panel left panel
+        serverTree = new ServerTree(stage.getScene().getWindow(), servers);
+        root.setLeft(serverTree);
     }
 
-    private TreeView buildServersTree() {
-
-        Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
-        Server node = new Server();
-        node.setName("Servers");
-        TreeItem<Server> rootNode = new TreeItem<>(node, new ImageView(imgRoot));
-        servers.forEach((t, u) -> {
-            
-            Server s = new Server();
-            try {
-                s = mapper.readValue(u.toString(), Server.class);
-            } catch (IOException ex) {
-                Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-            }
-            
-            
-            Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
-            TreeItem<Server> child = new TreeItem<>(s, new ImageView(imgOffline));
-            rootNode.getChildren().add(child);
-            
-        });
-        serverTree.setRoot(rootNode);        
-        return serverTree;
-    }
-
+    
     private TableView buildTable(File file) {
         TableView table = new TableView();
 
@@ -366,7 +342,6 @@ public class MainApp extends Application {
                     .keySerializer(Serializer.STRING)
                     .valueSerializer(Serializer.STRING)
                     .create();
-
         } else {
             storage = DBMaker.fileDB(path.toString()).make();
             servers = storage.get("servers");
@@ -375,11 +350,8 @@ public class MainApp extends Application {
         }
     }
 
-    
-
     private void addConnection(Optional<Map<String, String>> details) {
-        Map<String, String> detail = details.get();
-        
+        Map<String, String> detail = details.get();        
         String serialized = null;
         try {
             serialized = mapper.writeValueAsString(detail);
