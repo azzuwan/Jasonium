@@ -1,23 +1,17 @@
 package com.blazzify.jasonium;
 
 import com.blazzify.jasonium.models.Server;
-import com.jayway.jsonpath.JsonPath;
-import com.jayway.jsonpath.ReadContext;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.application.Application;
@@ -57,15 +51,19 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import org.javalite.activejdbc.Base;
+import org.mapdb.DB;
+import org.mapdb.DBMaker;
+import org.mapdb.Serializer;
 
 public class MainApp extends Application {
 
     BorderPane root = new BorderPane();
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
-    private Connection h2Connection = null;
     private TabPane tabPane = new TabPane();
+    private TreeView<Server> serverTree = new TreeView<>();
+    DB storage = null;
+    ConcurrentMap servers = null;
 
     @Override
     public void start(Stage stage) throws Exception {
@@ -73,16 +71,6 @@ public class MainApp extends Application {
         checkExistingStorage();
 
         //Open database connection to H2
-        try {
-            Base.open("org.h2.Driver", "jdbc:h2:~/jasonium", "sa", "");
-        } catch (Exception e) {
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Local Storage Error");
-            alert.setHeaderText("Cannot open local database");
-            alert.setContentText("Stack Trace:\n" + e.getMessage());
-        }
-        
-
         //Vertical box to stack menu and tool bar
         VBox boxTop = new VBox();
 
@@ -262,29 +250,49 @@ public class MainApp extends Application {
 
     private TreeView buildServersTree() {
 
-        List<Server> servers = Server.findAll();
-
-        TreeView<String> tree = new TreeView<>();
         Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
-        TreeItem rootNode = new TreeItem("Servers", new ImageView(imgRoot));
-        tree.setRoot(rootNode);
-        Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
-        
-        servers.stream().map((s) -> new TreeItem<>(s, new ImageView(imgOffline))).forEachOrdered((t) -> {
-            rootNode.getChildren().add(t);
-        });        
-        return tree;
+        Server node = new Server();
+        node.setName("Servers");
+        TreeItem<Server> rootNode = new TreeItem<>(node, new ImageView(imgRoot));
+        servers.forEach((t, u) -> {
+            Server s = new Server();
+            String h = u.toString().replaceAll("\\{|\\}", "");
+            String[] y = h.split(",");
+            for(String z : y){
+                String[] n = z.split("=");
+                switch (n[0].trim()){
+                    case "name":
+                        s.setName(n[1]);
+                        break;
+                    case "host":
+                        s.setHost(n[1]);
+                        break;
+                    case "port":
+                        s.setPort(n[1]);
+                        break;
+                    case "user":
+                        s.setUser(n[1]);
+                        break;
+                    case "pass":
+                        s.setPass(n[1]);
+                        break;
+                    default:
+                        break;
+                }                
+            }
+            Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
+            TreeItem<Server> child = new TreeItem<>(s, new ImageView(imgOffline));
+            rootNode.getChildren().add(child);
+            System.out.println("FFDFDFDFDFD: " + s+ "  ggggg: " + s.getHost());
+            
+        });
+        serverTree.setRoot(rootNode);        
+        return serverTree;
     }
 
     private TableView buildTable(File file) {
         TableView table = new TableView();
-        ReadContext ctx = null;
-        try {
-            ctx = JsonPath.parse(file);
-        } catch (IOException ex) {
-            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        List<Map<String, LinkedHashMap>> entityList = ctx.read("$.rasa_nlu_data.entity_examples");
+
         table.setEditable(true);
 
         TableColumn indexCol = new TableColumn("#");
@@ -338,16 +346,7 @@ public class MainApp extends Application {
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
 
         ObservableList<Intent> intentList = FXCollections.observableArrayList();
-        int i = 0;
-        for (Object entity : entityList) {
-            LinkedHashMap map = (LinkedHashMap) entity;
-            Set<String> keys = map.keySet();
-            Intent intent = new Intent(Integer.toString(i), map.get("intent").toString(),
-                    map.get("text").toString(),
-                    map.get("entities").toString());
-            intentList.add(intent);
-            i++;
-        }
+
         table.setItems(intentList);
         table.setStyle("-fx-border-width: 1px;");
         table.setStyle("-fx-border-color: gray;");
@@ -373,28 +372,51 @@ public class MainApp extends Application {
     }
 
     private void checkExistingStorage() {
-        Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.mv.db");
+        Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.db");
+        System.out.println("Checking local storage at: "+ path);
         if (Files.notExists(path)) {
-            try {
-                Class.forName("org.h2.Driver");
-                Connection conn = DriverManager.getConnection("hdbc:h2:~/jasonium", "sa", "");
-                createConnectionTable(conn);
-            } catch (ClassNotFoundException | SQLException ex) {
-                Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-            }
+            storage = DBMaker.fileDB(path.toString()).make();
+            servers = storage.hashMap("servers")
+                    .keySerializer(Serializer.STRING)
+                    .valueSerializer(Serializer.STRING)
+                    .create();
+
+        } else {
+            storage = DBMaker.fileDB(path.toString()).make();
+            servers = storage.get("servers");
+            System.out.println("Servers length: " + servers.size());
+        
         }
     }
 
-    private void addConnection(Optional<Map<String, String>> details) {
-        Server s = new Server();
-        s.set("name", details.get().get("name"));
-        s.set("host", details.get().get("host"));
-        s.set("port", details.get().get("port"));
-        s.set("user", details.get().get("user"));
-        s.set("pass", details.get().get("pass"));
-        s.saveIt();
-        System.out.println("NEW CONNECTION INSERTED");
+    
 
+    private void addConnection(Optional<Map<String, String>> details) {
+        Map<String, String> detail = details.get();
+        servers.put(detail.get("name"), detail.toString());
+        Server s = new Server(detail.get("name"),                 
+                detail.get("host"), 
+                detail.get("port"), 
+                detail.get("user"),                 
+                detail.get("pass"),
+                detail.get("type")
+        ); 
+        Image img = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
+        ImageView iv = new ImageView(img);
+       TreeItem<Server> node = new TreeItem<>(s,iv);
+        serverTree.getRoot().getChildren().add(node);
+        System.out.println("NEW CONNECTION INSERTED");
+        
+
+    }
+    
+    @Override
+    public void stop(){
+        System.out.println("Shutdown requested");
+        System.out.println("Closing local storage...");
+        storage.close();
+        System.out.println("Completed");
+        Platform.exit();
     }
 
     /**
@@ -402,25 +424,5 @@ public class MainApp extends Application {
      */
     public static void main(String[] args) {
         launch(args);
-    }
-
-    private void createConnectionTable(Connection conn) {
-        Statement stmt = null;
-        try {
-            stmt = conn.createStatement();
-            String sql = "CREATE TABLE servers("
-                    + "id bigint auto_increment primary key, "
-                    + "name varchar(255), "
-                    + "host varchar(255), "
-                    + "port varchar(255), "
-                    + "user varchar(255), "
-                    + "pass varchar(255), "
-                    + "type varchar(255))";
-            stmt.executeUpdate(sql);
-            System.out.println("TABLE CREATED");
-        } catch (SQLException ex) {
-            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
     }
 }
