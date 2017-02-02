@@ -23,6 +23,7 @@ public class ServerTreeContextMenu extends ContextMenu {
     public ServerTreeContextMenu() {
         connect.setOnAction((event) -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connecting!", ButtonType.OK);
+            alert.showAndWait();
         });
         disconnect.setOnAction((event) -> {
         });
