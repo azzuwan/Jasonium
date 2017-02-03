@@ -16,9 +16,8 @@
 
     <organization>
         <!-- Used as the 'Vendor' for JNLP generation -->
-        <name>Your Organisation</name>
+        <name>Blazzify</name>
     </organization>
-
     <build>
         <plugins>
             <plugin>
@@ -105,6 +104,11 @@
         </plugins>
     </build>
     <dependencies>
+        <dependency>
+            <groupId>org.mongodb</groupId>
+            <artifactId>mongodb-driver</artifactId>
+            <version>3.4.2</version>
+        </dependency>
         <dependency>
             <groupId>org.jongo</groupId>
             <artifactId>jongo</artifactId>
