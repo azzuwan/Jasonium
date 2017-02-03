@@ -57,7 +57,7 @@ import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
 public class MainApp extends Application {
-    
+
     BorderPane root = new BorderPane();
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
@@ -109,40 +109,36 @@ public class MainApp extends Application {
             grid.setPadding(new Insets(20, 150, 10, 10));
 
             TextField label = new TextField();
-            label.setPromptText("Connection name");
+            label.setPromptText("Name this connection");
 
             TextField host = new TextField();
             host.minWidth(400.0);
-            host.setPromptText("Domain, host name or  IP Address");
+            host.setPromptText("Host name or IP Address");
+
             TextField port = new TextField();
-            port.setPromptText("Port");
+            port.setPromptText("Defaults to 27017");
+
+            TextField db = new TextField();
+            db.setPromptText("Will create if none");
 
             TextField user = new TextField();
-            user.setPromptText("Username");
+            user.setPromptText("Database username");
 
             PasswordField pass = new PasswordField();
-            pass.setPromptText("Password");
-
-//            ChoiceBox type = new ChoiceBox();
-//            type.getItems().add(new ServerType("H2 Embedded", "embedded"));
-//            type.getItems().add(new ServerType("H2 Server", "h2"));
-//            type.getItems().add(new ServerType("MongoDB", "mongodb"));
-//            type.getItems().add(new ServerType("MariaDB", "mariadb"));
-//            type.getItems().add(new ServerType("Mysql", "mysql"));
-//            type.getItems().add(new ServerType("Postgresql", "postgresql"));
+            pass.setPromptText("Database password");
 
             grid.add(new Label("Label:"), 0, 0);
             grid.add(label, 1, 0);
             grid.add(new Label("Host:"), 0, 1);
             grid.add(host, 1, 1);
-            grid.add(new Label("port:"), 0, 2);
-            grid.add(port, 1, 2);
-            grid.add(new Label("Username:"), 0, 3);
-            grid.add(user, 1, 3);
-            grid.add(new Label("Password:"), 0, 4);
-            grid.add(pass, 1, 4);
-//            grid.add(new Label("Server Type:"), 0, 5);
-//            grid.add(type, 1, 5);
+            grid.add(new Label("Database:"), 0, 2);
+            grid.add(db, 1, 2);
+            grid.add(new Label("port:"), 0, 3);
+            grid.add(port, 1, 3);
+            grid.add(new Label("Username:"), 0, 4);
+            grid.add(user, 1, 4);
+            grid.add(new Label("Password:"), 0, 5);
+            grid.add(pass, 1, 5);
 
             VBox box = new VBox();
             box.setAlignment(Pos.CENTER);
@@ -154,17 +150,26 @@ public class MainApp extends Application {
                     Map<String, String> details = new HashMap<>();
                     details.put("name", label.getText());
                     details.put("host", host.getText());
-                    details.put("port", port.getText());
+                    if (host.getText().equals("") || host.getText() == null) {
+                        details.put("port", "27017");
+                    } else {
+                        details.put("port", port.getText());
+                    }
+                    details.put("db", host.getText());
                     details.put("user", user.getText());
                     details.put("pass", pass.getText());
-//                    details.put("type", ((ServerType) type.getValue()).getValue());
                     return details;
                 }
                 return null;
             });
             Optional<Map<String, String>> result = dialog.showAndWait();
-            System.out.println("Details gathered: " + result.get());
-            addConnection(result);
+            if (result != null && result.get() != null) {
+                System.out.println("Details gathered: " + result.get());
+                addConnection(result);
+            }else{
+                System.out.println("Dialog canceled");
+            }
+            
         });
         menuConnections.getItems().add(menuItemAddConnection);
         //Top level Find
@@ -245,13 +250,12 @@ public class MainApp extends Application {
         stage.setTitle("Jasonium");
         stage.setScene(scene);
         stage.show();
-        
+
         //Main panel left panel
         serverTree = new ServerTree(stage.getScene().getWindow(), servers);
         root.setLeft(serverTree);
     }
 
-    
     private TableView buildTable(File file) {
         TableView table = new TableView();
 
@@ -335,7 +339,7 @@ public class MainApp extends Application {
 
     private void checkExistingStorage() {
         Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.db");
-        System.out.println("Checking local storage at: "+ path);
+        System.out.println("Checking local storage at: " + path);
         if (Files.notExists(path)) {
             storage = DBMaker.fileDB(path.toString()).make();
             servers = storage.hashMap("servers")
@@ -346,12 +350,12 @@ public class MainApp extends Application {
             storage = DBMaker.fileDB(path.toString()).make();
             servers = storage.get("servers");
             System.out.println("Servers length: " + servers.size());
-        
+
         }
     }
 
     private void addConnection(Optional<Map<String, String>> details) {
-        Map<String, String> detail = details.get();        
+        Map<String, String> detail = details.get();
         String serialized = null;
         try {
             serialized = mapper.writeValueAsString(detail);
@@ -360,25 +364,22 @@ public class MainApp extends Application {
             Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
         }
         servers.put(detail.get("name"), serialized);
-        Server s = new Server(detail.get("name"),                 
-                detail.get("host"), 
-                detail.get("port"), 
-                detail.get("user"),                 
+        Server s = new Server(detail.get("name"),
+                detail.get("host"),
+                detail.get("port"),
+                detail.get("user"),
                 detail.get("pass"),
-                ""
-//                detail.get("type")
-        ); 
+                "");
         Image img = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
         ImageView iv = new ImageView(img);
-       TreeItem<Server> node = new TreeItem<>(s,iv);
+        TreeItem<Server> node = new TreeItem<>(s, iv);
         serverTree.getRoot().getChildren().add(node);
         System.out.println("NEW CONNECTION INSERTED");
-        
 
     }
-    
+
     @Override
-    public void stop(){
+    public void stop() {
         System.out.println("Shutdown requested");
         System.out.println("Closing local storage...");
         storage.close();
