@@ -12,9 +12,11 @@ package com.blazzify.jasonium.models;
  * @author Azzuwan Aziz <azzuwan@gmail.com>
  */
 public class Server{
+    
    private String name;
    private String host;
    private String port;
+   private String db;
    private String user;
    private String pass;
    private String type;
@@ -55,7 +57,20 @@ public class Server{
     public void setPort(String port) {
         this.port = port;
     }
+    
+    /**
+     * @return the db
+     */
+    public String getDb() {
+        return db;
+    }
 
+    /**
+     * @param db the db to set
+     */
+    public void setDb(String db) {
+        this.db = db;
+    }
     public String getUser() {
         return user;
     }
