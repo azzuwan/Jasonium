@@ -5,8 +5,6 @@
  */
 package com.blazzify.jasonium.models;
 
-
-
 /**
  *
  * @author Azzuwan Aziz <azzuwan@gmail.com>
