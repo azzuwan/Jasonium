@@ -6,10 +6,11 @@
 package com.blazzify.jasonium.ui;
 
 import com.blazzify.jasonium.MainApp;
+import com.blazzify.jasonium.Storage;
 import com.blazzify.jasonium.models.Server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
-import java.util.Map;
+import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javafx.scene.control.TreeItem;
@@ -24,12 +25,14 @@ import javafx.stage.Window;
  */
 public class ServerTree extends TreeView<Server> {
 
-    ObjectMapper mapper = new ObjectMapper();
+    private ObjectMapper mapper = new ObjectMapper();
+    
 
     public ServerTree() {
     }
     
-    public ServerTree(Window root, Map<String, String> servers) {
+    public ServerTree(Window root) {
+        ConcurrentMap servers = Storage.getServers();
         Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
         Server node = new Server();
         node.setName("Servers");

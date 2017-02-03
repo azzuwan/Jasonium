@@ -28,21 +28,17 @@ import org.mapdb.DBMaker;
 import org.mapdb.Serializer;
 
 public class MainApp extends Application {
-
     BorderPane root = new BorderPane();
     private Tab defaultTab = new Tab("Untitled*");
     private BorderPane defaultTabPane = new BorderPane();
     private TabPane tabPane = new TabPane();
     private ServerTree serverTree;
-    DB storage = null;
-    ConcurrentMap servers = null;
+    private ConcurrentMap servers = null;
     ObjectMapper mapper = new ObjectMapper();
 
     @Override
     public void start(Stage stage) throws Exception {
-        //Check if local storage exists.
-        checkExistingStorage();
-
+        
         //Tool bar for tab content
         ToolBar defaultTabTool = new ToolBar();
 
@@ -61,64 +57,32 @@ public class MainApp extends Application {
 
         stage.setTitle("Jasonium");
         stage.setScene(scene);
+        //Calling show first because we need the window object 
+        //to be passed to the custom ui components
         stage.show();
 
         //Main panel left panel
-        serverTree = new ServerTree(stage.getScene().getWindow(), servers);
+        serverTree = new ServerTree(stage.getScene().getWindow());
         root.setLeft(serverTree);
 
-        AppMenu menuBar = new AppMenu(stage, mapper, servers, serverTree);
+        AppMenu menuBar = new AppMenu(stage,serverTree);
         AppToolBar toolBar = new AppToolBar(stage, defaultTab, defaultTabPane);
+        
         //Vertical box to stack menu and tool bar
         VBox boxTop = new VBox();
         boxTop.getChildren().add(menuBar);
         boxTop.getChildren().add(toolBar);
-        //Vertical box add menu and tool bar
-        boxTop.getChildren().add(toolBar);
+        
         //Main panel top
         root.setTop(boxTop);
     }
 
    
-    private Connection connect() {
-        Connection conn = null;
-        try {
-            Class.forName("org.h2.Driver");
-            conn = DriverManager.getConnection("jdbc:h2:~/jasonium", "sa", "");
-        } catch (ClassNotFoundException | SQLException ex) {
-            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-            Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setTitle("Application Storage Error");
-            alert.setHeaderText("Failed to read Jasonium database");
-            alert.setContentText(ex.getMessage());
-            alert.showAndWait();
-            System.exit(1);
-        }
-        return conn;
-    }
-
-    private void checkExistingStorage() {
-        Path path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.db");
-        System.out.println("Checking local storage at: " + path);
-        if (Files.notExists(path)) {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.hashMap("servers")
-                    .keySerializer(Serializer.STRING)
-                    .valueSerializer(Serializer.STRING)
-                    .create();
-        } else {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.get("servers");
-            System.out.println("Servers length: " + servers.size());
-
-        }
-    }
 
     @Override
     public void stop() {
         System.out.println("Shutdown requested");
-        System.out.println("Closing local storage...");
-        storage.close();
+        System.out.println("Closing local storage...");        
         System.out.println("Completed");
         Platform.exit();
     }

@@ -6,6 +6,7 @@
 package com.blazzify.jasonium.ui;
 
 import com.blazzify.jasonium.MainApp;
+import com.blazzify.jasonium.Storage;
 import com.blazzify.jasonium.models.Server;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -46,9 +47,9 @@ public class AppMenu extends MenuBar {
     Map<String, String> servers = null;
     ServerTree serverTree = null;
 
-    public AppMenu(Stage stage, ObjectMapper mapper, Map<String, String> servers, ServerTree serverTree) {
-        this.mapper = mapper;
-        this.servers = servers;
+    public AppMenu(Stage stage, ServerTree serverTree) {
+        servers = Storage.getServers();
+        mapper = new ObjectMapper();
         this.serverTree = serverTree;
        
         //Top level File
