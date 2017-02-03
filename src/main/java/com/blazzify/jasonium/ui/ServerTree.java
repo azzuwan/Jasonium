@@ -42,15 +42,17 @@ public class ServerTree extends TreeView<Server> {
                 Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
             }
             Image imgOffline = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
-            TreeItem<Server> child = new TreeItem<>(s, new ImageView(imgOffline));
+            TreeItem<Server> child = new TreeItem<>(s, new ImageView(imgOffline));            
             rootNode.getChildren().add(child);
         });
         this.setRoot(rootNode);
         this.setOnContextMenuRequested((event) -> {
-            ServerTreeContextMenu menu = new ServerTreeContextMenu();
+           
             Window w = root.getScene().getWindow();
             Double winX = w.getX();
             Double winY = w.getY();            
+            event.getSource();
+            ServerTreeContextMenu menu = new ServerTreeContextMenu(event);
             menu.show(w, event.getSceneX() + winX, event.getSceneY() + winY);
         });
     }
