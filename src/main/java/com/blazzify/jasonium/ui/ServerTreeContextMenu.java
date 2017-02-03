@@ -5,10 +5,18 @@
  */
 package com.blazzify.jasonium.ui;
 
+import com.blazzify.jasonium.models.Server;
+import com.mongodb.DB;
+import com.mongodb.MongoClient;
+import com.mongodb.MongoClientOptions;
+import com.mongodb.MongoClientURI;
+import com.mongodb.MongoCredential;
+import com.mongodb.ServerAddress;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.input.ContextMenuEvent;
 
 /**
  *
@@ -16,14 +24,19 @@ import javafx.scene.control.MenuItem;
  */
 public class ServerTreeContextMenu extends ContextMenu {
 
+    DB db = null;
     MenuItem connect = new MenuItem("Connect");
     MenuItem disconnect = new MenuItem("Disconnect");
     MenuItem remove = new MenuItem("Remove");
 
-    public ServerTreeContextMenu() {
+    public ServerTreeContextMenu(ContextMenuEvent treeEvent) {
         connect.setOnAction((event) -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connecting!", ButtonType.OK);
             alert.showAndWait();
+            Server s = (Server) treeEvent.getSource();
+            MongoCredential cred = MongoCredential.createCredential(s.getUser(), "admin", s.getPass().toCharArray());
+            MongoClient client = new MongoClient(new ServerAddress(s.getHost(), Integer.parseInt(s.getPort())));
+            db = client.getDB(s.getDb());
         });
         disconnect.setOnAction((event) -> {
         });
