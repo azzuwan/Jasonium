@@ -18,50 +18,49 @@ import org.mapdb.Serializer;
  * @author Azzuwan Aziz <azzuwan@gmail.com>
  */
 public class Storage {
-    private static DB storage = null;
+    private static DB db = null;
     private static ConcurrentMap servers = null;
-    private static Path path = null;
+    private static Path path = null;    
+    private Storage(){}
     public static ConcurrentMap getServers() {        
         path = FileSystems.getDefault().getPath(System.getProperty("user.home"), "jasonium.db");
         System.out.println("Checking local storage at: " + path);
-        if (Files.notExists(path)) {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.hashMap("servers")
+        if (Files.notExists(path) || db == null || db.isClosed()) {
+            db = DBMaker.fileDB(path.toString()).make();            
+            servers = db.hashMap("servers")                    
                     .keySerializer(Serializer.STRING)
-                    .valueSerializer(Serializer.STRING)
-                    .create();
-        } else {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.get("servers");
+                    .valueSerializer(Serializer.STRING)                    
+                    .createOrOpen();
             System.out.println("Servers length: " + getServers().size());
-
+        } else{          
+            System.out.println("Strange cannot open map db");
         }
-        storage.close();
+        //db.close();
         return servers;
     }
     
     public static void close(){
-        storage.close();
+        db.close();
     }
     
     public static void save(ConcurrentMap modified){
        if (Files.notExists(path)) {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.hashMap("servers")
+            db = DBMaker.fileDB(path.toString()).make();
+            servers = db.hashMap("servers")
                     .keySerializer(Serializer.STRING)
                     .valueSerializer(Serializer.STRING)
                     .create();
             servers.putAll(modified);
-            storage.commit();
+            db.commit();
         } else {
-            storage = DBMaker.fileDB(path.toString()).make();
-            servers = storage.get("servers");
+            db = DBMaker.fileDB(path.toString()).make();
+            servers = db.get("servers");
             servers.putAll(modified);
-            storage.commit();
+            db.commit();
             System.out.println("Servers length: " + getServers().size());
 
         }
-        storage.close();
+        db.close();
     }
     
 }

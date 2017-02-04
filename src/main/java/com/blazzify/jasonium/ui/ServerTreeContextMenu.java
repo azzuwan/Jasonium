@@ -8,8 +8,6 @@ package com.blazzify.jasonium.ui;
 import com.blazzify.jasonium.models.Server;
 import com.mongodb.DB;
 import com.mongodb.MongoClient;
-import com.mongodb.MongoClientOptions;
-import com.mongodb.MongoClientURI;
 import com.mongodb.MongoCredential;
 import com.mongodb.ServerAddress;
 import javafx.scene.control.Alert;
@@ -33,7 +31,8 @@ public class ServerTreeContextMenu extends ContextMenu {
         connect.setOnAction((event) -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connecting!", ButtonType.OK);
             alert.showAndWait();
-            Server s = (Server) treeEvent.getSource();
+            ServerTreeItem st = (ServerTreeItem)treeEvent.getSource();
+            Server s = st.getServer();
             MongoCredential cred = MongoCredential.createCredential(s.getUser(), "admin", s.getPass().toCharArray());
             MongoClient client = new MongoClient(new ServerAddress(s.getHost(), Integer.parseInt(s.getPort())));
             db = client.getDB(s.getDb());

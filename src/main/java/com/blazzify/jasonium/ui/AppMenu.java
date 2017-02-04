@@ -48,7 +48,8 @@ public class AppMenu extends MenuBar {
     ServerTree serverTree = null;
 
     public AppMenu(Stage stage, ServerTree serverTree) {
-        servers = Storage.getServers();
+        servers = Storage.getServers(); 
+        //Storage.close();
         mapper = new ObjectMapper();
         this.serverTree = serverTree;
        
