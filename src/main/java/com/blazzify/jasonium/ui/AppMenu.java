@@ -5,17 +5,13 @@
  */
 package com.blazzify.jasonium.ui;
 
-import com.blazzify.jasonium.MainApp;
 import com.blazzify.jasonium.Storage;
-import com.blazzify.jasonium.models.Server;
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.blazzify.jasonium.Utils;
+import com.blazzify.jasonium.storage.Server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.File;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import javafx.application.Platform;
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
@@ -73,7 +69,7 @@ public class AppMenu extends MenuBar {
         Menu menuConnections = new Menu("Connections");
         MenuItem menuItemAddConnection = new MenuItem("Add connection");
         menuItemAddConnection.setOnAction((ActionEvent event) -> {
-            Dialog<Map<String, String>> dialog = new Dialog<>();
+            Dialog<Server> dialog = new Dialog<>();
             dialog.setTitle("Add New Connection");
             dialog.setHeaderText("Database Connection Details ");
             dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -121,25 +117,40 @@ public class AppMenu extends MenuBar {
             Platform.runLater(() -> label.requestFocus());
             dialog.setResultConverter(btn -> {
                 if (btn == ButtonType.OK) {
-                    Map<String, String> details = new HashMap<>();
-                    details.put("name", label.getText());
-                    details.put("host", host.getText());
+                    Server server = new Server();
+                    server.setName(label.getText());
+                    
                     if (host.getText().equals("") || host.getText() == null) {
-                        details.put("port", "27017");
+                        server.setHost("localhost");
+                        
                     } else {
-                        details.put("port", port.getText());
+                        server.setHost(host.getText());
                     }
-                    details.put("db", host.getText());
-                    details.put("user", user.getText());
-                    details.put("pass", pass.getText());
-                    return details;
+                    
+                    if (port.getText().equals("") || port.getText() == null) {
+                        server.setPort(27017);
+                        
+                    } else {
+                        server.setPort(Integer.parseInt(port.getText()));
+                    }
+                    server.setDb(db.getText());
+                    server.setUser(user.getText());
+                    server.setPass(pass.getText());
+                    return server;
                 }
                 return null;
             });
-            Optional<Map<String, String>> result = dialog.showAndWait();
-            if (result != null && result.get() != null) {
+            Optional<Server> result = dialog.showAndWait();
+            if (result != null && result.get()!= null) {
                 System.out.println("Details gathered: " + result.get());
-                addConnection(result);
+                Server s  = result.get();
+                if(Utils.isNullorEmpty(s.getName())){
+                    Utils.prompt(Alert.AlertType.ERROR, "Incomplete Detail", "Missing label or server name", "Please fill in server name or Label");
+                }else if(Utils.isNullorEmpty(s.getHost())){
+                    Utils.prompt(Alert.AlertType.ERROR, "Incomplete Detail", "Missing host name or IP Address", "Please fill in host name or IP Address");
+                }else{
+                    addConnection(result.get());
+                }
             } else {
                 System.out.println("Dialog canceled");
             }
@@ -168,25 +179,12 @@ public class AppMenu extends MenuBar {
 
     }
 
-    private void addConnection(Optional<Map<String, String>> details) {
-        Map<String, String> detail = details.get();
-        String serialized = null;
-        try {
-            serialized = mapper.writeValueAsString(detail);
-            System.out.println("NEW CONNECTION SERIALIZED: " + serialized);
-        } catch (JsonProcessingException ex) {
-            Logger.getLogger(MainApp.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        servers.put(detail.get("name"), serialized);
-        Server s = new Server(detail.get("name"),
-                detail.get("host"),
-                detail.get("port"),
-                detail.get("user"),
-                detail.get("pass"),
-                "");
+
+
+    private void addConnection(Server details) {
         Image img = new Image(getClass().getClassLoader().getResourceAsStream("icons/server-off.png"));
         ImageView iv = new ImageView(img);
-        TreeItem<Server> node = new TreeItem<>(s, iv);
+        TreeItem<Server> node = new TreeItem<>(details, iv);
         serverTree.getRoot().getChildren().add(node);
         System.out.println("NEW CONNECTION INSERTED");
 

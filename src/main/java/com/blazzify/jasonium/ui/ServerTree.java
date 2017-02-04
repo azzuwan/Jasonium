@@ -7,23 +7,17 @@ package com.blazzify.jasonium.ui;
 
 import com.blazzify.jasonium.MainApp;
 import com.blazzify.jasonium.Storage;
-import com.blazzify.jasonium.models.Server;
+import com.blazzify.jasonium.storage.Server;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.util.concurrent.ConcurrentMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import javafx.event.Event;
-import javafx.event.EventHandler;
-import javafx.event.EventType;
-import javafx.scene.control.TreeCell;
 import javafx.scene.control.TreeItem;
 import javafx.scene.control.TreeView;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
-import javafx.scene.input.MouseEvent;
 import javafx.stage.Window;
-import javafx.util.Callback;
 
 /**
  *
