@@ -42,7 +42,7 @@ public class ServerTree extends TreeView<Server> {
         Image imgRoot = new Image(getClass().getClassLoader().getResourceAsStream("icons/servers.png"));
         Server node = new Server();
         node.setName("Servers");
-        ServerTreeItem rootNode = new ServerTreeItem(node, new ImageView(imgRoot));
+        TreeItem<Server> rootNode = new TreeItem<Server>(node, new ImageView(imgRoot));
         servers.forEach((t, u) -> {
             Server s = new Server();
             try {
@@ -57,12 +57,12 @@ public class ServerTree extends TreeView<Server> {
         this.setRoot(rootNode);
 
         this.setOnContextMenuRequested((event) -> {
-           ServerTreeItem  item = (ServerTreeItem) this.getSelectionModel().getSelectedItem();
+           TreeItem<Server>  item = (TreeItem<Server>) this.getSelectionModel().getSelectedItem();
             Window w = root.getScene().getWindow();
             Double winX = w.getX();
             Double winY = w.getY();            
             System.out.println("TREE NODE RIGHT CLICK: "+ item);
-            ServerTreeContextMenu menu = new ServerTreeContextMenu(event);
+            ServerTreeContextMenu menu = new ServerTreeContextMenu(item.getValue());
             menu.show(w, event.getSceneX() + winX, event.getSceneY() + winY);
         });
     }

@@ -14,6 +14,7 @@ import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.TreeItem;
 import javafx.scene.input.ContextMenuEvent;
 
 /**
@@ -27,12 +28,10 @@ public class ServerTreeContextMenu extends ContextMenu {
     MenuItem disconnect = new MenuItem("Disconnect");
     MenuItem remove = new MenuItem("Remove");
 
-    public ServerTreeContextMenu(ContextMenuEvent treeEvent) {
+    public ServerTreeContextMenu(Server s) {
         connect.setOnAction((event) -> {
             Alert alert = new Alert(Alert.AlertType.INFORMATION, "Connecting!", ButtonType.OK);
             alert.showAndWait();
-            ServerTreeItem st = (ServerTreeItem)treeEvent.getSource();
-            Server s = st.getServer();
             MongoCredential cred = MongoCredential.createCredential(s.getUser(), "admin", s.getPass().toCharArray());
             MongoClient client = new MongoClient(new ServerAddress(s.getHost(), Integer.parseInt(s.getPort())));
             db = client.getDB(s.getDb());
